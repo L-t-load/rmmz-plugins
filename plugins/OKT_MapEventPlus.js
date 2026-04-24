@@ -1,34 +1,107 @@
 /*:
  * @target MZ
- * @plugindesc マップイベント機能追加プラグイン
- * @author 沖田小次郎
+ * @plugindesc マップイベント拡張（名札表示 / 描画位置調整 / 親子追従 / ページ跨ぎ実行 / 1枚画像表示）
+ * @author KOJIRO OKITA
  * @help
  * ■ 概要
- *  イベントのメモ欄やプラグインコマンドで、NPC名/扉の行き先などの「名札」を頭上に表示します。
- *  名札の見た目は「プリセット」で管理でき、イベントごとに切替可能。
- *  名札は「マップ内では最前面（タイル/キャラより上）・ピクチャより下」に描画します。
+ *  マップイベントを拡張する総合プラグインです。
+ *  名札表示・描画位置調整・親子追従・ページ跨ぎラベル実行・一枚画像表示に対応します。
  *
- * ■ メモ欄タグ（半角/全角OK）
- *   <名前:武具屋トム> / ＜名前:武具屋トム＞
- *   <名前2:裏稼業>    / <Door:城下町の通路>
- *   <NamePreset:Door> と <名前:扉> を併用で「本文は<名前:>、見た目は Door」なども可能
- *   \v[n] / \EVNAME / \EVNAME[5] / \MAPNAME / 「このイベントの名前」「このマップ名」も展開可能
+ * --------------------------------------------------
+ * ■ 名札表示機能
+ *  イベントの頭上に名前や説明を表示します。
  *
- * ■ 新機能：プラグインコマンドで“表示/非表示”を即時制御（メモ欄より優先）
- *   - 名札を表示（上書き）: 指定イベント（省略時は実行元）の名札文言とプリセットを上書き表示
- *   - 名札を非表示       : 指定イベントの名札を強制的に隠す（再表示は「表示」を実行）
+ *  ▼ メモ欄
+ *   <名前:武具屋トム>
+ *   <名前2:裏稼業>
+ *   <Door:城下町の通路>
  *
- * ■ 既存機能：ページ跨ぎジャンプ/コール（ラベル #2:ラベル名）
- *   CrossPageJump / CrossPageCall は従来どおり。
+ *  ▼ 特徴
+ *   ・プリセットで見た目を管理（文字色 / 背景 / 角丸 / 不透明度 など）
+ *   ・マップ内で最前面（ピクチャより下）に表示
  *
- * ライセンス：MIT
+ * --------------------------------------------------
+ * ■ 名札の表示制御（プラグインコマンド）
+ *  イベント中に名札を変更・非表示にできます。
+ *
+ *   ・名札を表示（上書き）
+ *   ・名札を非表示（フレーム指定で自動復帰可能）
+ *
+ * --------------------------------------------------
+ * ■ 名札テキストの特殊制御文字
+ *  名札内で以下が使用可能です。
+ *
+ *   \v[n]        ：変数
+ *   \EVNAME      ：このイベント名
+ *   \EVNAME[n]   ：指定イベント名
+ *   \MAPNAME     ：マップ名
+ *   このイベントの名前
+ *   このマップ名
+ *
+ * --------------------------------------------------
+ * ■ 描画位置調整（locate）
+ *  イベント画像の表示位置を見た目だけずらします。
+ *
+ *  ▼ メモ欄
+ *   <locate:x +3,y -8>
+ *   <locate:+3,-8>
+ *
+ *  ※座標は変わらず、見た目のみ移動します
+ *
+ * --------------------------------------------------
+ * ■ 親子イベント機能
+ *  イベントを別のイベントに追従させます。
+ *
+ *  ▼ メモ欄
+ *   <Parent:12>
+ *
+ *  ▼ スイッチ条件付き
+ *   <Parent[2]:12>
+ *   → スイッチ2がONの時のみ追従
+ *
+ *  ▼ 特徴
+ *   ・移動 / 斜め移動 / ジャンプ / 位置変更に対応
+ *   ・移動速度 / 頻度も親に同期
+ *
+ * --------------------------------------------------
+ * ■ ページ跨ぎラベル実行
+ *  別ページのラベルを呼び出せます。
+ *
+ *   CrossPageJump（戻らない）
+ *   CrossPageCall（戻る）
+ *
+ *  ▼ ラベル指定
+ *   #2:テスト
+ *   → 2ページ目の「テスト」ラベル
+ *
+ * --------------------------------------------------
+ * ■ OneImage（1枚画像表示）
+ *  キャラチップを分割せず、画像を1枚として表示します。
+ *
+ *  ▼ メモ欄
+ *   <OneImage>
+ *
+ *  ▼ 用途
+ *   ・家具
+ *   ・看板
+ *   ・大型オブジェクト
+ *   ・専用イベント画像
+ *
+ *  ▼ 補足
+ *   ・表示位置はイベントの足元基準
+ *   ・当たり判定は通常通り（1マス）
+ *   ・<locate> と併用可能
+ *
+ * --------------------------------------------------
+ * ■ ライセンス
+ *  MIT License
  *
  * @command CrossPageJump
  * @text ページ跨ぎジャンプ（戻らない）
  * @arg labelText
  * @text ラベル名
  * @type string
- * @default ジャンプ
+ * @default テスト
  * @arg eventId
  * @text 対象イベントID
  * @type number
@@ -60,7 +133,7 @@
  * @arg labelText
  * @text ラベル名
  * @type string
- * @default ジャンプ
+ * @default テスト
  * @arg eventId
  * @text 対象イベントID
  * @type number
@@ -887,6 +960,71 @@
             return;
         }
         _OKT_GCB_locate_parent.call(this, x, y);
+    };
+
+    // ---------- OneImage：イベントキャラ画像を1枚絵として扱う ----------
+    function oktHasOneImageTag(note) {
+        const text = String(note || "");
+        return /<\s*OneImage\s*>/i.test(text) || /＜\s*OneImage\s*＞/i.test(text);
+    }
+
+    Game_Event.prototype.oktIsOneImage = function () {
+        const evData = this.event?.();
+        return oktHasOneImageTag(evData?.note || "");
+    };
+
+    const _OKT_SC_patternWidth_oneImage = Sprite_Character.prototype.patternWidth;
+    Sprite_Character.prototype.patternWidth = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return this.bitmap ? this.bitmap.width : 0;
+        }
+        return _OKT_SC_patternWidth_oneImage.call(this);
+    };
+
+    const _OKT_SC_patternHeight_oneImage = Sprite_Character.prototype.patternHeight;
+    Sprite_Character.prototype.patternHeight = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return this.bitmap ? this.bitmap.height : 0;
+        }
+        return _OKT_SC_patternHeight_oneImage.call(this);
+    };
+
+    const _OKT_SC_characterBlockX_oneImage = Sprite_Character.prototype.characterBlockX;
+    Sprite_Character.prototype.characterBlockX = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return 0;
+        }
+        return _OKT_SC_characterBlockX_oneImage.call(this);
+    };
+
+    const _OKT_SC_characterBlockY_oneImage = Sprite_Character.prototype.characterBlockY;
+    Sprite_Character.prototype.characterBlockY = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return 0;
+        }
+        return _OKT_SC_characterBlockY_oneImage.call(this);
+    };
+
+    const _OKT_SC_characterPatternX_oneImage = Sprite_Character.prototype.characterPatternX;
+    Sprite_Character.prototype.characterPatternX = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return 0;
+        }
+        return _OKT_SC_characterPatternX_oneImage.call(this);
+    };
+
+    const _OKT_SC_characterPatternY_oneImage = Sprite_Character.prototype.characterPatternY;
+    Sprite_Character.prototype.characterPatternY = function () {
+        const ch = this._character;
+        if (ch instanceof Game_Event && ch.oktIsOneImage && ch.oktIsOneImage()) {
+            return 0;
+        }
+        return _OKT_SC_characterPatternY_oneImage.call(this);
     };
 
 })();
