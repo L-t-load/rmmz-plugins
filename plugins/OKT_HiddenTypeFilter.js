@@ -1,6 +1,6 @@
 /*:
  * @target MZ
- * @plugindesc 武器・防具・スキルタイプをプラグインパラメーターで設定し、メニューやUIで非表示にするプラグイン
+ * @plugindesc 指定したタイプを各種一覧から非表示にします v1.1.0
  * @author 沖田小次郎
  *
  * @param HideTag
@@ -47,12 +47,19 @@
  *    - 非表示防具タイプID: メニューから非表示にする防具タイプIDの配列
  *    - 無効化スイッチID: ONのときプラグインの動作を停止（0で常時有効）
  *
+ * 【アイテム一覧】
+ * 武器・防具はアイテム一覧でも非表示になります。
+ * $dataSystem.itemTypes がある環境では、タグ付きアイテムタイプも対象です。
+ * 標準のRPGツクールMZにはアイテムタイプ名の設定欄はありません。
+ *
  * 【注意】
  * - 初期装備またはイベントコマンドで装備変更した装備は装備中リストに表示されます。
  * - タグによる非表示とIDリストによる非表示の両方で判定します。
  *
- * 【MITライセンス】
- * このプラグインはMITライセンスです。自由に改変・再配布可能です。
+ * 【利用規約】
+ * MIT License。商用・非商用を問わず利用・改変・再配布できます。
+ * 再配布時は著作権表示とライセンス全文を保持してください。
+ * 詳細は同梱の LICENSE.txt をご確認ください。
  */
 
 (() => {
@@ -92,6 +99,11 @@
         return (name && hasHideTag(name)) || HiddenArmorTypes.includes(id);
     }
 
+    function isHiddenItemType(id) {
+        if (!pluginEnabled() || id <= 0) return false;
+        return !!($dataSystem.itemTypes && hasHideTag($dataSystem.itemTypes[id]));
+    }
+
     // --- ウィンドウ拡張 ---
     // スキルタイプ一覧
     const _Window_SkillType_makeCommandList = Window_SkillType.prototype.makeCommandList;
@@ -115,6 +127,17 @@
             if (DataManager.isArmor(item) && isHiddenArmorType(item.atypeId)) return false;
         }
         return _Window_EquipItem_includes.call(this, item);
+    };
+
+    // アイテム一覧
+    const _Window_ItemList_includes = Window_ItemList.prototype.includes;
+    Window_ItemList.prototype.includes = function (item) {
+        if (item) {
+            if (DataManager.isItem(item) && isHiddenItemType(item.itypeId)) return false;
+            if (DataManager.isWeapon(item) && isHiddenWeaponType(item.wtypeId)) return false;
+            if (DataManager.isArmor(item) && isHiddenArmorType(item.atypeId)) return false;
+        }
+        return _Window_ItemList_includes.call(this, item);
     };
 
     // バトルコマンド
